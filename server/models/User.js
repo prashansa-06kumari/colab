@@ -34,6 +34,65 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters']
+  },
+  
+  // Points system fields
+  pointsReceived: {
+    type: Number,
+    default: 0,
+    min: [0, 'Points cannot be negative']
+  },
+  
+  pointsGiven: {
+    type: Number,
+    default: 0,
+    min: [0, 'Points cannot be negative']
+  },
+
+  // Streak and activity tracking fields
+  currentStreak: {
+    type: Number,
+    default: 0,
+    min: [0, 'Streak cannot be negative']
+  },
+
+  longestStreak: {
+    type: Number,
+    default: 0,
+    min: [0, 'Longest streak cannot be negative']
+  },
+
+  lastActiveDate: {
+    type: Date,
+    default: null
+  },
+
+  activityDates: [{
+    date: {
+      type: Date,
+      required: true
+    },
+    activities: [{
+      type: {
+        type: String,
+        enum: ['login', 'message', 'edit', 'drawing', 'points_given', 'points_received'],
+        required: true
+      },
+      timestamp: {
+        type: Date,
+        default: Date.now
+      },
+      details: {
+        type: String,
+        default: ''
+      }
+    }]
+  }],
+
+  totalActiveDays: {
+    type: Number,
+    default: 0,
+    min: [0, 'Total active days cannot be negative']
   }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt fields

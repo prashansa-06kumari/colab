@@ -6,10 +6,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Analytics from './pages/Analytics';
 import Navbar from './components/Navbar';
+import './styles/themes.css';
 
 /**
  * Protected Route Component
@@ -81,6 +84,14 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/analytics" 
+        element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        } 
+      />
 
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/dashboard" />} />
@@ -94,13 +105,15 @@ const AppRoutes = () => {
  */
 const App = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <AppRoutes />
-        </div>
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <div className="min-h-screen theme-bg-secondary">
+            <AppRoutes />
+          </div>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

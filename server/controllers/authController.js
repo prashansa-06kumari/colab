@@ -5,6 +5,7 @@
 
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { trackActivity } = require('./streakController');
 
 /**
  * Generate JWT token for authenticated user
@@ -133,6 +134,15 @@ const login = async (req, res) => {
       });
     }
 
+    // Track login activity for streak
+    try {
+      await trackActivity(user._id);
+      console.log('✅ Login activity tracked for user:', user.email);
+    } catch (streakError) {
+      console.error('⚠️ Failed to track login activity:', streakError);
+      // Don't fail login if streak tracking fails
+    }
+
     // Generate JWT token
     const token = generateToken(user._id);
 
@@ -164,14 +174,20 @@ const login = async (req, res) => {
  */
 const getMe = async (req, res) => {
   try {
+    // Get fresh user data with streak information
+    const user = await User.findById(req.user._id);
+    
     // User information is already available from auth middleware
     res.status(200).json({
       success: true,
       data: {
         user: {
-          id: req.user._id,
-          name: req.user.name,
-          email: req.user.email
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          currentStreak: user.currentStreak,
+          longestStreak: user.longestStreak,
+          totalPoints: user.totalPoints
         }
       }
     });

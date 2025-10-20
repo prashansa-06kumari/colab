@@ -1,28 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles for CollabSpace */
+/* Streak notification animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-slide-out {
+  animation: slideOut 0.3s ease-out;
+}
+
+/* Custom styles for CollabSpace Premium */
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gradient-to-b from-primary-dark to-secondary-blue text-text-main font-inter;
+    background-size: 400% 400%;
+    animation: gradientShift 12s linear infinite;
+    min-height: 100vh;
+  }
+  
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #0F1E3F;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #997953;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #CDAA80;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-accent-gold text-primary-dark font-semibold py-3 px-6 rounded-xl transition-all duration-300 ease-in-out hover:bg-[#E1BE93] hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-secondary-blue text-accent-gold border border-bronze-tone font-semibold py-3 px-6 rounded-xl transition-all duration-300 ease-in-out hover:bg-[#182F47] hover:border-accent-gold hover:shadow-lg active:scale-95;
   }
   
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-3 bg-panel-bg border border-bronze-tone rounded-xl focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-accent-gold text-text-bright placeholder-bronze-tone transition-all duration-300;
   }
   
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+    @apply bg-panel-bg rounded-2xl shadow-2xl border border-bronze-tone p-6 backdrop-blur-sm;
+  }
+  
+  .message-bubble-user {
+    @apply bg-secondary-blue text-accent-gold rounded-2xl px-4 py-3 shadow-lg border border-bronze-tone transition-all duration-300 hover:scale-105;
+  }
+  
+  .message-bubble-other {
+    @apply bg-primary-dark text-text-bright rounded-2xl px-4 py-3 shadow-lg border border-bronze-tone transition-all duration-300 hover:scale-105;
+  }
+  
+  .panel-glow {
+    @apply shadow-[0_0_20px_rgba(205,170,128,0.1)] border border-bronze-tone/30;
+  }
+  
+  .gold-glow {
+    @apply shadow-[0_0_15px_rgba(205,170,128,0.3)] hover:shadow-[0_0_25px_rgba(205,170,128,0.5)];
+  }
+  
+  .premium-gradient {
+    background: linear-gradient(135deg, #0F1E3F 0%, #213A56 50%, #162B4C 100%);
+  }
+
+  /* Quill Editor - Basic Styling */
+  .ql-editor {
+    min-height: 200px;
+    color: #000000;
+  }
+
+  /* Ensure default text color is black, but allow user color changes */
+  .ql-editor p:not([style*="color"]),
+  .ql-editor div:not([style*="color"]),
+  .ql-editor span:not([style*="color"]) {
+    color: #000000;
+  }
+
+  /* Only apply black to elements without explicit color styling */
+  .ql-editor *:not([style*="color"]) {
+    color: #000000;
   }
 }

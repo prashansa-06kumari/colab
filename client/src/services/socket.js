@@ -10,6 +10,7 @@ class SocketService {
     this.socket = null;
     this.connected = false;
     this.roomId = null;
+    this.user = null;
   }
 
   /**
@@ -22,6 +23,14 @@ class SocketService {
     }
 
     console.log('🔌 Socket - Connecting to server with token:', !!token);
+    
+    // Update user data from sessionStorage
+    const userData = sessionStorage.getItem('user');
+    if (userData) {
+      this.user = JSON.parse(userData);
+      console.log('🔌 Socket - User data set:', this.user?.name);
+    }
+    
     this.socket = io('http://localhost:5000', {
       auth: {
         token: token
@@ -57,6 +66,28 @@ class SocketService {
       this.socket = null;
       this.connected = false;
     }
+  }
+
+  /**
+   * Switch user - disconnect old connection and connect with new user
+   * @param {string} token - New JWT authentication token
+   */
+  switchUser(token) {
+    console.log('🔄 Socket - Switching user, disconnecting old connection');
+    this.disconnect();
+    
+    // Update user data from sessionStorage
+    const userData = sessionStorage.getItem('user');
+    if (userData) {
+      this.user = JSON.parse(userData);
+      console.log('🔄 Socket - Updated user data:', this.user?.name);
+    }
+    
+    // Small delay to ensure clean disconnection
+    setTimeout(() => {
+      console.log('🔄 Socket - Connecting with new user token');
+      this.connect(token);
+    }, 100);
   }
 
   /**
@@ -298,6 +329,17 @@ class SocketService {
   emit(event, data) {
     if (this.socket && this.connected) {
       this.socket.emit(event, data);
+    }
+  }
+
+  /**
+   * Remove specific event listener
+   * @param {string} event - Event name
+   * @param {Function} callback - Callback function to remove
+   */
+  off(event, callback) {
+    if (this.socket) {
+      this.socket.off(event, callback);
     }
   }
 

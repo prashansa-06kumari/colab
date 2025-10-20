@@ -165,8 +165,13 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
         setIsAuthenticated(true);
         
-        // Connect to socket
-        socketService.connect(token);
+        // Switch user in socket service (handles disconnection and reconnection)
+        socketService.switchUser(token);
+        
+        // Dispatch user switched event for components to update
+        window.dispatchEvent(new CustomEvent('userSwitched', { 
+          detail: { user: userData } 
+        }));
         
         return { success: true, user: userData };
       } else {

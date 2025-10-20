@@ -18,11 +18,18 @@ const connectDB = require('./config/db');
 
 // Import models
 const User = require('./models/User');
+const Room = require('./models/Room');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const boardRoutes = require('./routes/boardRoutes');
+const aiRoutes = require('./routes/aiRoutes');
+const pointsRoutes = require('./routes/pointsRoutes');
+const streakRoutes = require('./routes/streakRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const historyRoutes = require('./routes/historyRoutes');
+const roomRoutes = require('./routes/roomRoutes');
 
 // Initialize Express app
 const app = express();
@@ -52,6 +59,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/board', boardRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/points', pointsRoutes);
+app.use('/api/streak', streakRoutes);
+app.use('/api/activity', activityRoutes);
+app.use('/api/history', historyRoutes);
+app.use('/api/rooms', roomRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -60,6 +73,25 @@ app.get('/api/health', (req, res) => {
     message: 'CollabSpace server is running',
     timestamp: new Date().toISOString()
   });
+});
+
+// Test endpoint to add points manually
+app.post('/api/test/add-points', async (req, res) => {
+  try {
+    const { userName, pointsReceived, pointsGiven } = req.body;
+    const user = await User.findOne({ name: userName });
+    if (user) {
+      user.pointsReceived += pointsReceived || 0;
+      user.pointsGiven += pointsGiven || 0;
+      await user.save();
+      res.json({ success: true, user });
+    } else {
+      res.status(404).json({ success: false, message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error adding test points:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 // Socket.io authentication middleware
@@ -112,7 +144,7 @@ const broadcastOnlineUsers = () => {
 };
 
 // Socket.io connection handling
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   console.log(`✅ User connected: ${socket.user.name} (${socket.id})`);
 
   // Add user to online users list
@@ -130,11 +162,40 @@ io.on('connection', (socket) => {
   console.log(`👥 Added user to online list: ${socket.user.name} (${socket.userId})`);
   console.log(`👥 Total online users: ${onlineUsers.size}`);
   
+  // Load user's points from database when they connect
+  try {
+    console.log(`🔍 Looking for user in database: ${socket.user.name}`);
+    const user = await User.findOne({ name: socket.user.name });
+    console.log(`🔍 User found in database:`, user ? 'Yes' : 'No');
+    if (user) {
+      console.log(`🔍 User points in database: received=${user.pointsReceived}, given=${user.pointsGiven}`);
+      socket.emit('loadUserPoints', {
+        pointsReceived: user.pointsReceived || 0,
+        pointsGiven: user.pointsGiven || 0
+      });
+      console.log(`📊 Loaded points for ${socket.user.name} on connection: received=${user.pointsReceived || 0}, given=${user.pointsGiven || 0}`);
+    } else {
+      // Send default values if user not found
+      console.log(`📊 User ${socket.user.name} not found in database, sending default values`);
+      socket.emit('loadUserPoints', {
+        pointsReceived: 0,
+        pointsGiven: 0
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error loading user points on connection:', error);
+    // Send default values on error
+    socket.emit('loadUserPoints', {
+      pointsReceived: 0,
+      pointsGiven: 0
+    });
+  }
+  
   // Broadcast updated user list to all clients
   broadcastOnlineUsers();
 
   // Join room
-  socket.on('joinRoom', (roomId) => {
+  socket.on('joinRoom', async (roomId) => {
     socket.join(roomId);
     console.log(`📝 User ${socket.user.name} joined room: ${roomId}`);
     
@@ -143,6 +204,7 @@ io.on('connection', (socket) => {
     const usersInRoom = [];
     
     if (room) {
+      console.log(`📊 Room ${roomId} now has ${room.size} users`);
       for (const socketId of room) {
         const userSocket = io.sockets.sockets.get(socketId);
         if (userSocket && userSocket.user) {
@@ -157,6 +219,32 @@ io.on('connection', (socket) => {
     
     // Send current users list to the newly joined user
     socket.emit('usersInRoom', usersInRoom);
+    
+            // Load user's points from database
+            try {
+              const user = await User.findOne({ name: socket.user.name });
+              if (user) {
+                socket.emit('loadUserPoints', {
+                  pointsReceived: user.pointsReceived || 0,
+                  pointsGiven: user.pointsGiven || 0
+                });
+                console.log(`📊 Loaded points for ${socket.user.name}: received=${user.pointsReceived || 0}, given=${user.pointsGiven || 0}`);
+              } else {
+                // Send default values if user not found
+                socket.emit('loadUserPoints', {
+                  pointsReceived: 0,
+                  pointsGiven: 0
+                });
+                console.log(`📊 User ${socket.user.name} not found in database, sending default values`);
+              }
+            } catch (error) {
+              console.error('❌ Error loading user points:', error);
+              // Send default values on error
+              socket.emit('loadUserPoints', {
+                pointsReceived: 0,
+                pointsGiven: 0
+              });
+            }
     
     // Notify others in the room about the new user
     socket.to(roomId).emit('userJoined', {
@@ -242,6 +330,262 @@ io.on('connection', (socket) => {
     });
 
     console.log(`🎨 Drawing updated in room ${roomId} by ${socket.user.name}`);
+  });
+
+  // Drawing stroke events (for real-time drawing)
+  socket.on('drawing', (data) => {
+    console.log('🎨 Server received drawing data:', data);
+    const { roomId, stroke, color, size } = data;
+    
+    // Get all sockets in the room
+    const room = io.sockets.adapter.rooms.get(roomId);
+    console.log(`📊 Room ${roomId} has ${room ? room.size : 0} users`);
+    
+    const drawingData = {
+      roomId,
+      stroke,
+      color,
+      size,
+      drawnBy: {
+        id: socket.userId,
+        name: socket.user.name
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('📤 Server broadcasting drawing to room:', roomId);
+    console.log('📤 Drawing data:', drawingData);
+    
+    // Broadcast stroke to all users in the room except sender
+    socket.to(roomId).emit('drawing', drawingData);
+    
+    // Also broadcast to the room using io.to() to ensure all users get it
+    io.to(roomId).emit('drawing', drawingData);
+    
+    // Log the broadcast
+    console.log(`📤 Broadcasted drawing to room ${roomId} with ${room ? room.size : 0} users`);
+
+    console.log(`🎨 Stroke drawn in room ${roomId} by ${socket.user.name}`);
+  });
+
+  // Clear canvas event
+  socket.on('clearCanvas', (data) => {
+    const { roomId } = data;
+    
+    // Broadcast clear canvas to all users in the room except sender
+    socket.to(roomId).emit('clearCanvas', {
+      roomId,
+      clearedBy: {
+        id: socket.userId,
+        name: socket.user.name
+      },
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`🧹 Canvas cleared in room ${roomId} by ${socket.user.name}`);
+  });
+
+  // Test event for debugging
+  socket.on('test', (data) => {
+    console.log('🧪 Server received test event:', data);
+    socket.emit('testResponse', { 
+      message: 'Hello from server', 
+      received: data,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Test broadcast event
+  socket.on('testBroadcast', (data) => {
+    console.log('📡 Server received broadcast test:', data);
+    const { roomId, message, timestamp } = data;
+    
+    // Broadcast to all users in the room
+    io.to(roomId).emit('broadcastTest', {
+      message: `Broadcast from ${socket.user.name}: ${message}`,
+      from: socket.user.name,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log(`📡 Broadcasted test message to room ${roomId}`);
+  });
+
+  // Points system events
+  socket.on('givePoints', async (data) => {
+    console.log('⭐ Server received points:', data);
+    const { roomId, points, targetUser, fromUser } = data;
+    
+    console.log('🔍 Server checking self-point prevention:', {
+      targetUser,
+      currentUser: socket.user.name,
+      isSelf: targetUser === socket.user.name,
+      userId: socket.userId,
+      targetUserId: data.targetUserId
+    });
+    
+    // Multiple checks to prevent self-point giving
+    const isSelfPoint = targetUser === socket.user.name || 
+                       targetUser === 'You' || 
+                       targetUser === socket.userId ||
+                       (data.targetUserId && data.targetUserId === socket.userId);
+    
+    if (isSelfPoint) {
+      console.log(`❌ ${socket.user.name} tried to give points to themselves - blocked`);
+      socket.emit('pointsError', {
+        message: 'You cannot give points to yourself!',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    // Additional validation: check if target user exists in the room
+    const room = io.sockets.adapter.rooms.get(roomId);
+    if (!room || room.size < 2) {
+      console.log(`❌ Invalid room or not enough users in room ${roomId}`);
+      socket.emit('pointsError', {
+        message: 'Invalid target user or room!',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    try {
+      // Find users by name to get their IDs
+      const fromUserDoc = await User.findOne({ name: socket.user.name });
+      const toUserDoc = await User.findOne({ name: targetUser });
+      
+      if (!fromUserDoc || !toUserDoc) {
+        console.log('❌ User not found in database');
+        socket.emit('pointsError', {
+          message: 'User not found!',
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+      
+      const pointsToGive = parseInt(points);
+      
+      // Update points in database using atomic operations and get updated values
+      const [updatedReceiver, updatedSender] = await Promise.all([
+        User.findByIdAndUpdate(
+          toUserDoc._id, 
+          { $inc: { pointsReceived: pointsToGive } },
+          { new: true }
+        ),
+        User.findByIdAndUpdate(
+          fromUserDoc._id, 
+          { $inc: { pointsGiven: pointsToGive } },
+          { new: true }
+        )
+      ]);
+      
+      console.log(`✅ Points saved to database: ${pointsToGive} from ${socket.user.name} to ${targetUser}`);
+      console.log(`📊 Updated totals - ${socket.user.name}: given=${updatedSender.pointsGiven}, ${targetUser}: received=${updatedReceiver.pointsReceived}`);
+      
+      // Send updated points to the sender immediately
+      socket.emit('loadUserPoints', {
+        pointsReceived: updatedSender.pointsReceived,
+        pointsGiven: updatedSender.pointsGiven
+      });
+      
+      // Send updated points to the receiver (if they're in the room)
+      const receiverSocket = Array.from(io.sockets.sockets.values())
+        .find(s => s.user && s.user.name === targetUser);
+      
+      if (receiverSocket) {
+        receiverSocket.emit('loadUserPoints', {
+          pointsReceived: updatedReceiver.pointsReceived,
+          pointsGiven: updatedReceiver.pointsGiven
+        });
+        console.log(`📊 Sent updated points to receiver: ${targetUser}`);
+      }
+      
+      // Broadcast points event to all users in the room
+      io.to(roomId).emit('pointsReceived', {
+        points: pointsToGive,
+        fromUser: socket.user.name,
+        targetUser,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Broadcast points given update to all users in the room
+      io.to(roomId).emit('pointsGivenUpdate', {
+        fromUser: socket.user.name,
+        pointsGiven: pointsToGive,
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log(`⭐ ${socket.user.name} gave ${points} points to ${targetUser} in room ${roomId}`);
+    } catch (error) {
+      console.error('❌ Error saving points to database:', error);
+      socket.emit('pointsError', {
+        message: 'Error saving points to database!',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+          // Drawing notifications
+          socket.on('userStartedDrawing', (data) => {
+            console.log('🎨 User started drawing:', data);
+            const { roomId, userName } = data;
+            
+            // Broadcast drawing notification to other users in the room
+            socket.to(roomId).emit('userStartedDrawing', {
+              roomId,
+              userName: socket.user.name,
+              timestamp: new Date().toISOString()
+            });
+            
+            console.log(`🎨 ${socket.user.name} started drawing in room ${roomId}`);
+          });
+
+          // Request user points
+          socket.on('requestUserPoints', async (data) => {
+            console.log('📊 User requested points:', data);
+            try {
+              console.log(`🔍 Looking for user in database: ${data.userName}`);
+              const user = await User.findOne({ name: data.userName });
+              console.log(`🔍 User found in database:`, user ? 'Yes' : 'No');
+              if (user) {
+                console.log(`🔍 User points in database: received=${user.pointsReceived}, given=${user.pointsGiven}`);
+                socket.emit('loadUserPoints', {
+                  pointsReceived: user.pointsReceived || 0,
+                  pointsGiven: user.pointsGiven || 0
+                });
+                console.log(`📊 Sent points to ${data.userName}: received=${user.pointsReceived || 0}, given=${user.pointsGiven || 0}`);
+              } else {
+                console.log(`❌ User not found: ${data.userName}`);
+                // Send default values if user not found
+                socket.emit('loadUserPoints', {
+                  pointsReceived: 0,
+                  pointsGiven: 0
+                });
+              }
+            } catch (error) {
+              console.error('❌ Error loading user points:', error);
+              // Send default values on error
+              socket.emit('loadUserPoints', {
+                pointsReceived: 0,
+                pointsGiven: 0
+              });
+            }
+          });
+
+  // Drawing cursor movement
+  socket.on('drawingCursorMove', (data) => {
+    const { roomId, x, y, color, username } = data;
+    
+    // Broadcast cursor position to other users in the room
+    socket.to(roomId).emit('userCursorMove', {
+      roomId,
+      userId: socket.userId,
+      x,
+      y,
+      color,
+      username: socket.user.name,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Cursor position tracking
@@ -352,8 +696,130 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Room Management Events
+  socket.on('joinRoomById', async (roomId) => {
+    try {
+      console.log(`🏠 User ${socket.user.name} attempting to join room: ${roomId}`);
+      
+      // Find room in database
+      const room = await Room.findOne({ roomId });
+      if (!room) {
+        socket.emit('roomError', { message: 'Room not found' });
+        return;
+      }
+      
+      // Check if user is a member
+      if (!room.isMember(socket.userId)) {
+        socket.emit('roomError', { message: 'Access denied. You are not a member of this room.' });
+        return;
+      }
+      
+      // Join Socket.io room
+      socket.join(roomId);
+      
+      // Update user's online status in database
+      room.addMember(socket.userId, socket.user.name);
+      await room.save();
+      
+      // Get all users currently in the room
+      const roomSockets = await io.in(roomId).fetchSockets();
+      const usersInRoom = roomSockets.map(s => ({
+        userId: s.userId,
+        userName: s.user.name,
+        userEmail: s.user.email,
+        socketId: s.id,
+        connectedAt: new Date().toISOString()
+      }));
+      
+      // Notify all users in the room about the new user
+      socket.to(roomId).emit('userJoinedRoom', {
+        userId: socket.userId,
+        userName: socket.user.name,
+        userEmail: socket.user.email,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Send current room members to the newly joined user
+      socket.emit('roomMembers', {
+        roomId,
+        members: room.members.map(member => ({
+          userId: member.userId,
+          userName: member.userId.name || member.username,
+          isOnline: member.isOnline,
+          lastSeen: member.lastSeen
+        }))
+      });
+      
+      console.log(`✅ User ${socket.user.name} successfully joined room: ${roomId}`);
+      
+    } catch (error) {
+      console.error('❌ Error joining room:', error);
+      socket.emit('roomError', { message: 'Failed to join room' });
+    }
+  });
+  
+  socket.on('leaveRoomById', async (roomId) => {
+    try {
+      console.log(`🏠 User ${socket.user.name} leaving room: ${roomId}`);
+      
+      // Leave Socket.io room
+      socket.leave(roomId);
+      
+      // Update user's offline status in database
+      const room = await Room.findOne({ roomId });
+      if (room) {
+        room.removeMember(socket.userId);
+        await room.save();
+        
+        // Notify other users in the room
+        socket.to(roomId).emit('userLeftRoom', {
+          userId: socket.userId,
+          userName: socket.user.name,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      console.log(`✅ User ${socket.user.name} left room: ${roomId}`);
+      
+    } catch (error) {
+      console.error('❌ Error leaving room:', error);
+    }
+  });
+  
+  socket.on('getRoomMembers', async (roomId) => {
+    try {
+      const room = await Room.findOne({ roomId }).populate('members.userId', 'name email');
+      if (!room) {
+        socket.emit('roomError', { message: 'Room not found' });
+        return;
+      }
+      
+      // Check if user is a member
+      if (!room.isMember(socket.userId)) {
+        socket.emit('roomError', { message: 'Access denied' });
+        return;
+      }
+      
+      socket.emit('roomMembers', {
+        roomId,
+        members: room.members.map(member => ({
+          userId: member.userId._id,
+          userName: member.userId.name,
+          userEmail: member.userId.email,
+          isOnline: member.isOnline,
+          lastSeen: member.lastSeen,
+          joinedAt: member.joinedAt
+        }))
+      });
+      
+    } catch (error) {
+      console.error('❌ Error getting room members:', error);
+      socket.emit('roomError', { message: 'Failed to get room members' });
+    }
+  });
+
   // Handle disconnection
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log(`❌ User disconnected: ${socket.user.name} (${socket.id})`);
     
     // Remove user from online users list
@@ -366,6 +832,24 @@ io.on('connection', (socket) => {
       
       // Broadcast updated user list to all remaining clients
       broadcastOnlineUsers();
+    }
+    
+    // Update user's offline status in all rooms
+    try {
+      const rooms = await Room.find({ 'members.userId': socket.userId });
+      for (const room of rooms) {
+        room.removeMember(socket.userId);
+        await room.save();
+        
+        // Notify other users in the room
+        socket.to(room.roomId).emit('userLeftRoom', {
+          userId: socket.userId,
+          userName: socket.user.name,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error updating room status on disconnect:', error);
     }
 
     // Clean up editor tracking
@@ -384,6 +868,13 @@ io.on('connection', (socket) => {
         });
       }
     }
+
+    // Broadcast user disconnection for drawing cursors
+    socket.broadcast.emit('userDisconnected', {
+      userId: socket.userId,
+      userName: socket.user.name,
+      timestamp: new Date().toISOString()
+    });
   });
 });
 

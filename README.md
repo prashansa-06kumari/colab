@@ -6,12 +6,14 @@ A full-stack real-time collaborative workspace built with Node.js, Express, Mong
 
 - **Real-time Chat**: Instant messaging with Socket.io
 - **Collaborative Text Editor**: Rich text editing with Quill.js
+- **Drawing Board**: Real-time collaborative drawing with colorful cursors
+- **Room System**: Create and join private collaborative rooms with shareable links
 - **User Authentication**: JWT-based authentication with bcrypt
-- **Live User Presence**: See who's online and typing
-- **Multi-User Testing**: Tab-isolated sessions for testing multiple users
-- **User Switching**: Quick switch between different users for testing
+- **Live User Presence**: See who's online and typing in real-time
+- **Activity Tracking**: Streak counters and activity calendar
+- **Analytics Dashboard**: Track points, activities, and collaboration metrics
 - **Responsive Design**: Mobile-friendly interface with Tailwind CSS
-- **Real-time Updates**: Live collaboration on documents
+- **Real-time Updates**: Live collaboration on documents and drawings
 
 ## 🏗️ Architecture
 
@@ -149,6 +151,45 @@ Make sure MongoDB is running:
 - `userTyping` - User typing indicator
 - `userCursorMove` - User cursor position
 
+
+## 🏠 Room System
+
+### Room Creation & Management
+- **Create Rooms**: Set up private or public collaborative spaces with custom names and descriptions
+- **Shareable Links**: Generate unique room URLs (e.g., `/room/ABC12345`) for easy sharing
+- **Room Settings**: Configure member limits (5-50 users), privacy controls, and access permissions
+- **Host Controls**: Room creators can manage members, delete rooms, and update settings
+
+### Real-time Collaboration
+- **Live Member Tracking**: See who's online in each room with real-time status updates
+- **Room-specific Drawing**: Isolated drawing boards per room with persistent canvas state
+- **Member Notifications**: Get notified when users join/leave rooms
+- **Persistent Rooms**: Rooms persist across sessions with saved drawing data
+
+### Room Features
+- **Member Management**: Add/remove members, track online status, view join history
+- **Room Dashboard**: View all your rooms, member counts, and activity status
+- **Join Links**: Easy sharing with unique room URLs and copy-to-clipboard functionality
+- **Privacy Controls**: Private rooms with member-only access and guest restrictions
+- **Activity Tracking**: Track collaboration within each room with detailed analytics
+
+### Room API Endpoints
+- `POST /api/rooms` - Create a new room
+- `GET /api/rooms` - Get user's rooms
+- `GET /api/rooms/:roomId` - Get room details
+- `POST /api/rooms/:roomId/join` - Join a room
+- `POST /api/rooms/:roomId/leave` - Leave a room
+- `DELETE /api/rooms/:roomId` - Delete a room (host only)
+- `PUT /api/rooms/:roomId/settings` - Update room settings (host only)
+
+### Socket.io Room Events
+- `joinRoomById` - Join a specific room
+- `leaveRoomById` - Leave a room
+- `getRoomMembers` - Get current room members
+- `userJoinedRoom` - Broadcast when user joins
+- `userLeftRoom` - Broadcast when user leaves
+- `roomError` - Handle room-related errors
+
 ## 🎨 Features in Detail
 
 ### Real-time Chat
@@ -205,43 +246,11 @@ This project is licensed under the MIT License.
 
 ## 🧪 Multi-User Testing
 
-### Testing Real-time Collaboration
-
-CollabSpace now supports easy multi-user testing with tab-isolated sessions:
-
-#### **Method 1: Multiple Browser Tabs**
-1. **Open multiple tabs** of `http://localhost:5173`
-2. **Each tab has isolated sessions** (using sessionStorage)
-3. **Login with different users** in each tab
-4. **Test real-time collaboration** between users
-
-#### **Method 2: User Switching**
-1. **Use the "Switch User" button** in the navbar
-2. **Quick switch between predefined test users**:
-   - Alice Johnson (alice@test.com)
-   - Bob Smith (bob@test.com)
-   - Charlie Brown (charlie@test.com)
-   - Diana Prince (diana@test.com)
-   - Eve Wilson (eve@test.com)
-3. **All test users use password: `password123`**
-
-#### **Method 3: Setup Test Users**
-```bash
-# Run the setup script to create test users
-node setup-test-users.js
-```
-
-#### **Testing Features**
-- ✅ **Real-time chat** between multiple users
-- ✅ **Collaborative text editing** with live updates
-- ✅ **User presence** showing who's online
-- ✅ **Message CRUD operations** (edit/delete)
-- ✅ **Session isolation** between tabs
-
-### Development Mode
-- **Dev Mode Indicator** shows in bottom-left corner
-- **Session isolation** prevents cross-tab interference
-- **Quick user switching** for efficient testing
+To test collaboration with multiple users:
+1. Open multiple browser tabs or different browsers
+2. Create/login with different accounts
+3. Join the same room
+4. Test real-time chat, text editor, and drawing board
 
 ## 🆘 Troubleshooting
 
@@ -275,19 +284,6 @@ node setup-test-users.js
 - Verify all environment variables are set
 - Ensure all dependencies are installed
 - Check MongoDB connection status
-
-## 🎯 Future Enhancements
-
-- [ ] File sharing capabilities
-- [ ] Video/audio calls
-- [ ] Drawing canvas integration
-- [ ] Document version history
-- [ ] User roles and permissions
-- [ ] Multiple rooms support
-- [ ] Message reactions
-- [ ] Push notifications
-- [ ] Mobile app
-- [ ] Advanced collaboration features
 
 ---
 

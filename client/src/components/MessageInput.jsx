@@ -69,7 +69,7 @@ const MessageInput = ({ onSendMessage }) => {
           onChange={handleChange}
           onKeyPress={handleKeyPress}
           placeholder="Type your message..."
-          className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-300 ease-in-out placeholder-gray-400 text-gray-800 font-medium shadow-sm hover:shadow-md"
+          className="input-field w-full px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-accent-gold resize-none transition-all duration-300 ease-in-out placeholder-bronze-tone text-text-bright font-medium shadow-sm hover:shadow-md hover:scale-105"
           maxLength={1000}
         />
       </div>
@@ -77,7 +77,7 @@ const MessageInput = ({ onSendMessage }) => {
       <button
         type="submit"
         disabled={!message.trim()}
-        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ease-in-out font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all duration-300"
       >
         Send
       </button>
